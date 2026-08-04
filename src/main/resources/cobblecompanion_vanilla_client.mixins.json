@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "com.cobblecompanion.client.mixin.vanilla",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "cobblecompanion.refmap.json",
+  "client": [
+    "GameModeSwitcherScreenMixin",
+    "KeyboardHandlerMixin"
+  ],
+  "minVersion": "0.8"
+}

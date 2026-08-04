@@ -38,3 +38,9 @@ run/
 **/src/generated/**/.cache/
 repo/
 !**/src/**/repo/
+
+### CobbleCompanion (Split-Repos: fremde Mod-Abhaengigkeiten nicht mitcommiten) ###
+libs/*.jar
+!libs/CobbleCompanion-*.jar
+hs_err_pid*.log
+.tmp_nf/

@@ -1,0 +1,10 @@
+{
+  "required": true,
+  "package": "com.cobblecompanion.cobbledollarscustomnpcs.mixin.create",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "cobblecompanion_cobbledollars_customnpcs.refmap.json",
+  "mixins": [
+    "ContainerNPCTraderMixin"
+  ],
+  "minVersion": "0.8"
+}

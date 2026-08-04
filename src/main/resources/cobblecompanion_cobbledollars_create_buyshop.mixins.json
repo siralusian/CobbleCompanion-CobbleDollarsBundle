@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "com.cobblecompanion.cobbledollarscreate.mixin.create",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "cobblecompanion_cobbledollars_create.refmap.json",
+  "mixins": [
+    "BuyHandlerMixin",
+    "PlayerExtensionKtOpenShopMixin"
+  ],
+  "minVersion": "0.8"
+}

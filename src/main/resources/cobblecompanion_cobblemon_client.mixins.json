@@ -1,0 +1,10 @@
+{
+  "required": true,
+  "package": "com.cobblecompanion.client.mixin.cobblemon",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "cobblecompanion.refmap.json",
+  "client": [
+    "HeldItemRendererMixin"
+  ],
+  "minVersion": "0.8"
+}

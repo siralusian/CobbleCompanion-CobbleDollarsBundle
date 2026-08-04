@@ -1,0 +1,10 @@
+{
+  "required": true,
+  "package": "com.cobblecompanion.integrations.cobbledollars.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "cobblecompanion_cobbledollars.refmap.json",
+  "mixins": [
+    "BigIntegerExtensionsKtMixin"
+  ],
+  "minVersion": "0.8"
+}

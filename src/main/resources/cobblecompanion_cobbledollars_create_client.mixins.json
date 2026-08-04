@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "com.cobblecompanion.cobbledollarscreate.mixin.client",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "cobblecompanion_cobbledollars_create.refmap.json",
+  "client": [
+    "OfferEntryStockOverlayMixin",
+    "ShopScreenAmountMixin"
+  ],
+  "minVersion": "0.8"
+}

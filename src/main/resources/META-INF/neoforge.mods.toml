@@ -1,0 +1,283 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="MIT"
+
+# ============================================================================
+# CobbleDollars-Bundle buendelt Basis + CobbleDollars + CobbleDollars/Create +
+# CobbleDollars/CustomNPCs in EINEM Jar (NeoForge erlaubt mehrere
+# [[mods]]-Eintraege pro Jar, jeder mit eigenem @Mod-Konstruktor - der
+# Java-Code ist dafuer 1:1 unveraendert aus den getrennten Repos
+# uebernommen, siehe CobbleCompanion-AllInOne fuer dasselbe Muster).
+# BEWUSST NICHT enthalten: CobblemonWorker (Pokémon-Bauplan-System) und
+# CobbleCompanion: Create/Let's Do (Farm & Charm-Bruecke) - beide bleiben
+# eigenstaendige, separate Mods.
+#
+# WICHTIG: alle Fremd-Mod-Abhaengigkeiten (create, cobbledollars, customnpcs,
+# create_mobile_packages) sind hier bewusst "optional", auch dort, wo die
+# jeweilige STANDALONE-Version dieses Teilmoduls sie "required" deklariert.
+# Grund: ein einzelner fehlender "required"-Fremd-Mod blockiert bei NeoForge
+# den kompletten Spielstart - das würde die Idee eines Bundles (eine Datei
+# installieren, jedes Feature aktiviert sich automatisch NUR wenn sein
+# Fremd-Mod da ist) zunichtemachen. Die Feature-Gates selbst laufen ohnehin
+# schon zur Laufzeit über com.cobblecompanion.integrations.ModAvailability,
+# nicht über diese Abhaengigkeits-Deklaration - siehe die jeweiligen
+# onServerStarting-Methoden. Nur die Abhaengigkeiten INNERHALB dieses Jars
+# (cobblecompanion, cobblecompanion_cobbledollars) bleiben "required" - die
+# sind hier garantiert immer vorhanden.
+# ============================================================================
+
+# ===== cobblecompanion (Basis) =====
+
+[[dependencies.cobblecompanion]]
+    modId="neoforge"
+    type="required"
+    versionRange="[21.1.233,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.cobblecompanion]]
+    modId="minecraft"
+    type="required"
+    versionRange="[1.21.1,1.22)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.cobblecompanion]]
+    modId="cobblemon"
+    type="required"
+    versionRange="[1.7.3,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.cobblecompanion]]
+    modId="create"
+    type="optional"
+    versionRange="[6.0.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.cobblecompanion]]
+    modId="cobbledollars"
+    type="optional"
+    versionRange="[2.0.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.cobblecompanion]]
+    modId="create_mobile_packages"
+    type="optional"
+    versionRange="[0.7.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.cobblecompanion]]
+    modId="customnpcs"
+    type="optional"
+    versionRange="[1.0.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# ===== cobblecompanion_cobbledollars =====
+
+[[dependencies.cobblecompanion_cobbledollars]]
+    modId="neoforge"
+    type="required"
+    versionRange="[21.1.233,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.cobblecompanion_cobbledollars]]
+    modId="minecraft"
+    type="required"
+    versionRange="[1.21.1,1.22)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.cobblecompanion_cobbledollars]]
+    modId="cobblecompanion"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.cobblecompanion_cobbledollars]]
+    modId="cobbledollars"
+    type="optional"
+    versionRange="[2.0.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# ===== cobblecompanion_cobbledollars_create =====
+
+[[dependencies.cobblecompanion_cobbledollars_create]]
+    modId="neoforge"
+    type="required"
+    versionRange="[21.1.233,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.cobblecompanion_cobbledollars_create]]
+    modId="minecraft"
+    type="required"
+    versionRange="[1.21.1,1.22)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.cobblecompanion_cobbledollars_create]]
+    modId="cobblecompanion"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.cobblecompanion_cobbledollars_create]]
+    modId="cobblecompanion_cobbledollars"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.cobblecompanion_cobbledollars_create]]
+    modId="create"
+    type="optional"
+    versionRange="[6.0.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.cobblecompanion_cobbledollars_create]]
+    modId="cobbledollars"
+    type="optional"
+    versionRange="[2.0.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.cobblecompanion_cobbledollars_create]]
+    modId="create_mobile_packages"
+    type="optional"
+    versionRange="[0.7.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# ===== cobblecompanion_cobbledollars_customnpcs =====
+
+[[dependencies.cobblecompanion_cobbledollars_customnpcs]]
+    modId="neoforge"
+    type="required"
+    versionRange="[21.1.233,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.cobblecompanion_cobbledollars_customnpcs]]
+    modId="minecraft"
+    type="required"
+    versionRange="[1.21.1,1.22)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.cobblecompanion_cobbledollars_customnpcs]]
+    modId="cobblecompanion"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.cobblecompanion_cobbledollars_customnpcs]]
+    modId="cobblecompanion_cobbledollars"
+    type="required"
+    versionRange="[0.1.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.cobblecompanion_cobbledollars_customnpcs]]
+    modId="customnpcs"
+    type="optional"
+    versionRange="[1.0.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.cobblecompanion_cobbledollars_customnpcs]]
+    modId="cobbledollars"
+    type="optional"
+    versionRange="[2.0.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.cobblecompanion_cobbledollars_customnpcs]]
+    modId="create"
+    type="optional"
+    versionRange="[6.0.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# ============================================================================
+# Mixins - identische requiredMods-Bedingungen wie in den getrennten Repos,
+# diese gaten das Laden JEDES einzelnen Mixin-Configs unabhaengig von den
+# obigen (fuer Bundle absichtlich gelockerten) Mod-Abhaengigkeiten.
+# ============================================================================
+
+[[mixins]]
+    config="cobblecompanion_cobblemon_client.mixins.json"
+
+[[mixins]]
+    config="cobblecompanion_vanilla_client.mixins.json"
+
+[[mixins]]
+    config="cobblecompanion_cobbledollars.mixins.json"
+    requiredMods=["cobbledollars"]
+
+[[mixins]]
+    config="cobblecompanion_cobbledollars_create.mixins.json"
+    requiredMods=["cobbledollars", "create"]
+
+[[mixins]]
+    config="cobblecompanion_cobbledollars_create_client.mixins.json"
+    requiredMods=["cobbledollars", "create"]
+
+[[mixins]]
+    config="cobblecompanion_cobbledollars_create_buyshop.mixins.json"
+    requiredMods=["cobbledollars", "create"]
+
+[[mixins]]
+    config="cobblecompanion_cobbledollars_create_mobilepackages.mixins.json"
+    requiredMods=["cobbledollars", "create", "create_mobile_packages"]
+
+[[mixins]]
+    config="cobblecompanion_cobbledollars_customnpcs.mixins.json"
+    requiredMods=["customnpcs", "cobbledollars"]
+
+[[mixins]]
+    config="cobblecompanion_cobbledollars_customnpcs_create.mixins.json"
+    requiredMods=["customnpcs", "create"]
+
+# ============================================================================
+# Mods - je ein @Mod-Konstruktor pro Eintrag, unveraendert aus den
+# getrennten Repos uebernommen (siehe Klassenkommentar oben).
+# ============================================================================
+
+[[mods]]
+    modId="cobblecompanion"
+    version="0.1.0"
+    displayName="CobbleCompanion"
+    displayTest="IGNORE_ALL_VERSION"
+    description="Your Cobblemon companion – Pokedex, Living Dex, Box Helper and more."
+
+[[mods]]
+    modId="cobblecompanion_cobbledollars"
+    version="0.1.0"
+    displayName="CobbleCompanion: CobbleDollars"
+    displayTest="IGNORE_ALL_VERSION"
+    description="CobbleDollars-Erweiterung fuer CobbleCompanion: Wallet-Tab, Ueberweisungen und Creative-Zeitkauf."
+
+[[mods]]
+    modId="cobblecompanion_cobbledollars_create"
+    version="0.1.0"
+    displayName="CobbleCompanion: CobbleDollars/Create"
+    displayTest="IGNORE_ALL_VERSION"
+    description="Verbindet Create (Lagerticker, Schlauer Beobachter) mit CobbleDollars fuer CobbleCompanion."
+
+[[mods]]
+    modId="cobblecompanion_cobbledollars_customnpcs"
+    version="0.1.0"
+    displayName="CobbleCompanion: CobbleDollars/CustomNPCs"
+    displayTest="IGNORE_ALL_VERSION"
+    description="Verbindet CustomNPCs-Unofficial-NeoForge mit CobbleDollars fuer CobbleCompanion."

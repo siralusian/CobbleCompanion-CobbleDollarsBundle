@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "package": "com.cobblecompanion.cobbledollarscreate.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "cobblecompanion_cobbledollars_create.refmap.json",
+  "mixins": [
+    "ContentObserverActivateMixin",
+    "ContentObserverBeltRewardMixin",
+    "ContentObserverChuteRewardMixin",
+    "ContentObserverFunnelTransferMixin",
+    "SellHandlerMixin",
+    "PackageOrderRequestPacketMixin"
+  ],
+  "client": [
+    "BankScreenMixin"
+  ],
+  "minVersion": "0.8"
+}
