@@ -94,6 +94,20 @@ public class CobbleCompanionCommands {
                             grantAdminOp(ctx.getSource(), StringArgumentType.getString(ctx, "name"));
                             return 1;
                         })))
+                .then(Commands.literal("deop")
+                    .requires(AdminPermissionManager::canGrant)
+                    .then(Commands.argument("name", StringArgumentType.word())
+                        .executes(ctx -> {
+                            revokeOp(ctx.getSource(), StringArgumentType.getString(ctx, "name"));
+                            return 1;
+                        })))
+                .then(Commands.literal("deadminop")
+                    .requires(AdminPermissionManager::canGrant)
+                    .then(Commands.argument("name", StringArgumentType.word())
+                        .executes(ctx -> {
+                            revokeAdminOp(ctx.getSource(), StringArgumentType.getString(ctx, "name"));
+                            return 1;
+                        })))
                 // Nutzer-Vorgabe (Gamemodes-Einstellungskategorie): pro Dimension einen festen
                 // Spielmodus vorgeben, "gerne mit Autovervollständigung wie im Minecraft eigenen
                 // Chat" - DimensionArgument/GameModeArgument liefern das direkt (Brigadier-
@@ -472,6 +486,34 @@ private static void sendType(CommandSourceStack source, String query) {
         }
         AdminPermissionManager.grantAdminOp(targetUuid);
         source.sendSuccess(() -> Component.literal("§a" + targetName + " now has full CobbleCompanion Professor access (AdminOp)."), true);
+        ServerPlayer targetOnline = source.getServer().getPlayerList().getPlayer(targetUuid);
+        if (targetOnline != null) com.cobblecompanion.network.AdminPermissionSyncPacket.sendTo(targetOnline);
+    }
+
+    /** Entzieht einem Spieler jeglichen Professor-Tab-Zugriff (Op UND AdminOp). Braucht selbst AdminOp (oder Konsole). */
+    private static void revokeOp(CommandSourceStack source, String targetName) {
+        if (source.getServer() == null) return;
+        UUID targetUuid = FriendsManager.resolvePlayerName(source.getServer(), targetName);
+        if (targetUuid == null) {
+            source.sendFailure(Component.literal("§cPlayer '§f" + targetName + "§c' not found."));
+            return;
+        }
+        AdminPermissionManager.revokeOp(targetUuid);
+        source.sendSuccess(() -> Component.literal("§a" + targetName + " no longer has CobbleCompanion Professor access."), true);
+        ServerPlayer targetOnline = source.getServer().getPlayerList().getPlayer(targetUuid);
+        if (targetOnline != null) com.cobblecompanion.network.AdminPermissionSyncPacket.sendTo(targetOnline);
+    }
+
+    /** Stuft einen Spieler von AdminOp auf Op (nur Lesezugriff) herab. Braucht selbst AdminOp (oder Konsole). */
+    private static void revokeAdminOp(CommandSourceStack source, String targetName) {
+        if (source.getServer() == null) return;
+        UUID targetUuid = FriendsManager.resolvePlayerName(source.getServer(), targetName);
+        if (targetUuid == null) {
+            source.sendFailure(Component.literal("§cPlayer '§f" + targetName + "§c' not found."));
+            return;
+        }
+        AdminPermissionManager.revokeAdminOp(targetUuid);
+        source.sendSuccess(() -> Component.literal("§a" + targetName + " was downgraded to CobbleCompanion Professor read access (Op)."), true);
         ServerPlayer targetOnline = source.getServer().getPlayerList().getPlayer(targetUuid);
         if (targetOnline != null) com.cobblecompanion.network.AdminPermissionSyncPacket.sendTo(targetOnline);
     }
