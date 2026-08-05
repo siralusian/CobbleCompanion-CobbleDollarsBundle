@@ -20,6 +20,13 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
  * eigenem ClientEventHandler - hierher ausgelagert, da Basis nicht mehr von diesem Modul abhängen
  * darf (Basis behält nur noch die modulübergreifenden Teile: CompanionScreen-Öffnen, Strg/Alt-
  * Tastenstatus-Übertragung).
+ *
+ * Bewusst OHNE direkte Create-Importe (auch nicht über die geöffneten Screens hinaus, die selbst
+ * erst bei tatsächlichem setScreen()-Aufruf geladen werden) - @EventBusSubscriber scannt diese
+ * Klasse unconditional beim Moddurchlauf, siehe CobbleCompanionDollarsCreate.clientSetup()-
+ * Kommentar. Die Gruppen-Hervorhebungs-Logik (braucht direkten Zugriff auf SmartObserverBlock)
+ * liegt deshalb bewusst NICHT hier, sondern in ContentObserverGroupHighlightRenderer (manuell
+ * registriert, ModList-Gate).
  */
 @EventBusSubscriber(modid = "cobblecompanion_cobbledollars_create", value = Dist.CLIENT)
 public class ClientEventHandler {
@@ -49,9 +56,18 @@ public class ClientEventHandler {
             if (ClientContentObserverHelper.getPos() != null) {
                 Minecraft.getInstance().setScreen(new ContentObserverConfigScreen(
                     ClientContentObserverHelper.getPos(),
-                    ClientContentObserverHelper.getItemId(),
-                    ClientContentObserverHelper.getTargetPlayerName(),
-                    ClientContentObserverHelper.getAmountPerItem()));
+                    ClientContentObserverHelper.getRules(),
+                    ClientContentObserverHelper.getGroupId(),
+                    ClientContentObserverHelper.getGroupName(),
+                    ClientContentObserverHelper.isSubtractorBlock(),
+                    ClientContentObserverHelper.getPromiseExpiryStage(),
+                    ClientContentObserverHelper.isNetworkConnected(),
+                    ClientContentObserverHelper.getNetworkListName(),
+                    ClientContentObserverHelper.getCounterCount(),
+                    ClientContentObserverHelper.getSubtractorCount(),
+                    ClientContentObserverHelper.getNetworkPrices(),
+                    ClientContentObserverHelper.getEnabledCounterItemIds(),
+                    ClientContentObserverHelper.getEnabledSubtractorItemIds()));
             }
         }
 

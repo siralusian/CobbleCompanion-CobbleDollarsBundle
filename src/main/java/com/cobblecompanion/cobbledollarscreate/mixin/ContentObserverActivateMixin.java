@@ -52,8 +52,8 @@ public abstract class ContentObserverActivateMixin {
         if (!(self.getLevel() instanceof ServerLevel serverLevel)) return;
         BlockPos pos = self.getBlockPos();
 
-        ContentObserverConfigManager.Entry cfg = ContentObserverConfigManager.get(serverLevel.dimension(), pos);
-        if (cfg == null) return;
+        ContentObserverConfigManager.BlockConfig cfg = ContentObserverConfigManager.get(serverLevel.dimension(), pos);
+        if (cfg == null || cfg.rules.size() != 1 || cfg.groupId != null) return; // mehrdeutig ohne echten ItemStack, siehe Klassenkommentar
 
         BlockState state = self.getBlockState();
         Direction targetDir = SmartObserverBlock.getTargetDirection(state);
@@ -69,6 +69,6 @@ public abstract class ContentObserverActivateMixin {
         // "bleibt aktiv, Timer verlängert sich"-Aufruf.
         if (state.getValue(SmartObserverBlock.POWERED)) return;
 
-        ContentObserverRewardBridge.rewardForItems(serverLevel, cfg, 1);
+        ContentObserverRewardBridge.handleDetectedItems(serverLevel, pos, cfg, null, 1);
     }
 }

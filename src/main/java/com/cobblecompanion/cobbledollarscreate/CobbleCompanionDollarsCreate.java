@@ -49,11 +49,13 @@ public class CobbleCompanionDollarsCreate {
     private boolean mobileStockTickerHandlerRegistered = false;
     private boolean cobbleMerchantLinkHandlerRegistered = false;
     private boolean merchantShopPeriodicSyncHandlerRegistered = false;
+    private boolean contentObserverPromiseTickHandlerRegistered = false;
 
     public CobbleCompanionDollarsCreate(IEventBus modEventBus, ModContainer modContainer) {
         modEventBus.addListener(this::onRegisterPayloads);
         modEventBus.addListener(this::clientSetup);
         NeoForge.EVENT_BUS.addListener(this::onServerStarting);
+        ContentObserverDataComponents.register(modEventBus);
         LOGGER.info("CobbleCompanion: CobbleDollars/Create loading...");
     }
 
@@ -119,7 +121,19 @@ public class CobbleCompanionDollarsCreate {
             .playToServer(
                 MerchantOfferUpdatePacket.TYPE,
                 MerchantOfferUpdatePacket.CODEC,
-                MerchantOfferUpdatePacket::handle);
+                MerchantOfferUpdatePacket::handle)
+            .playToServer(
+                com.cobblecompanion.cobbledollarscreate.network.ContentObserverNetworkPriceUpdatePacket.TYPE,
+                com.cobblecompanion.cobbledollarscreate.network.ContentObserverNetworkPriceUpdatePacket.CODEC,
+                com.cobblecompanion.cobbledollarscreate.network.ContentObserverNetworkPriceUpdatePacket::handle)
+            .playToServer(
+                com.cobblecompanion.cobbledollarscreate.network.ContentObserverGroupHighlightRequestPacket.TYPE,
+                com.cobblecompanion.cobbledollarscreate.network.ContentObserverGroupHighlightRequestPacket.CODEC,
+                com.cobblecompanion.cobbledollarscreate.network.ContentObserverGroupHighlightRequestPacket::handle)
+            .playToClient(
+                com.cobblecompanion.cobbledollarscreate.network.ContentObserverGroupHighlightSyncPacket.TYPE,
+                com.cobblecompanion.cobbledollarscreate.network.ContentObserverGroupHighlightSyncPacket.CODEC,
+                com.cobblecompanion.cobbledollarscreate.network.ContentObserverGroupHighlightSyncPacket::handle);
     }
 
     /**
@@ -133,6 +147,7 @@ public class CobbleCompanionDollarsCreate {
     private void clientSetup(final FMLClientSetupEvent event) {
         if (ModList.get().isLoaded("create")) {
             NeoForge.EVENT_BUS.register(new com.cobblecompanion.cobbledollarscreate.client.StockTickerPriceOverlay());
+            NeoForge.EVENT_BUS.register(new com.cobblecompanion.cobbledollarscreate.client.ContentObserverGroupHighlightRenderer());
         }
         if (ModList.get().isLoaded("create") && ModList.get().isLoaded("create_mobile_packages")) {
             NeoForge.EVENT_BUS.register(new com.cobblecompanion.cobbledollarscreate.mobilepackages.client.MobileStockTickerPriceOverlay());
@@ -149,6 +164,11 @@ public class CobbleCompanionDollarsCreate {
 
         CreateStockTickerPriceManager.init(event.getServer());
         ContentObserverConfigManager.init(event.getServer());
+        ContentObserverGroupCatalogManager.init(event.getServer());
+        // Bugfix (Live-Fund): init() fehlte hier komplett - Gruppennamen wurden nie auf die
+        // Festplatte geschrieben, nur im Arbeitsspeicher der laufenden Session gehalten (dataFile
+        // blieb null, save() war dadurch ein stiller No-Op) und gingen bei jedem Serverneustart verloren.
+        ContentObserverGroupManager.init(event.getServer());
         CentralItemPriceManager.init(event.getServer());
         CobbleMerchantSellManager.init(event.getServer());
         CobbleMerchantPayoutManager.init(event.getServer());
@@ -176,6 +196,7 @@ public class CobbleCompanionDollarsCreate {
         if (ModAvailability.isCreateAvailable() && !createHandlersRegistered) {
             NeoForge.EVENT_BUS.register(new CreateStockTickerInteractionHandler());
             NeoForge.EVENT_BUS.register(new ContentObserverInteractionHandler());
+            NeoForge.EVENT_BUS.register(new ContentObserverPlacementHandler());
             NeoForge.EVENT_BUS.register(new AdminProtectedBlockHandler());
             NeoForge.EVENT_BUS.register(new StockTickerOrderScreenPriceHandler());
             createHandlersRegistered = true;
@@ -197,6 +218,13 @@ public class CobbleCompanionDollarsCreate {
                 && !merchantShopPeriodicSyncHandlerRegistered) {
             NeoForge.EVENT_BUS.register(new MerchantShopPeriodicSyncHandler());
             merchantShopPeriodicSyncHandlerRegistered = true;
+        }
+        // Nutzer-Vorgabe: verknüpfte Zähler/Abzieher-Beobachter-Gruppen zahlen abgelaufene
+        // Versprechen zeitverzögert aus (siehe ContentObserverPromiseManager) statt sofort.
+        if (ModAvailability.isCobbleDollarsAvailable() && ModAvailability.isCreateAvailable()
+                && !contentObserverPromiseTickHandlerRegistered) {
+            NeoForge.EVENT_BUS.register(new ContentObserverPromiseTickHandler());
+            contentObserverPromiseTickHandlerRegistered = true;
         }
     }
 }

@@ -45,13 +45,13 @@ public abstract class ContentObserverFunnelTransferMixin {
             if (SmartObserverBlock.getTargetDirection(neighborState) != direction.getOpposite()) continue;
             if (!(level.getBlockEntity(neighborPos) instanceof SmartObserverBlockEntity)) continue;
 
-            ContentObserverConfigManager.Entry cfg = ContentObserverConfigManager.get(serverLevel.dimension(), neighborPos);
+            ContentObserverConfigManager.BlockConfig cfg = ContentObserverConfigManager.get(serverLevel.dimension(), neighborPos);
             if (cfg == null) continue;
 
-            // Nutzer-Vorgabe: Wildcard-/Tag-Muster - siehe ContentObserverBeltRewardMixin-Kommentar.
-            if (!ContentObserverConfigManager.matches(cfg.itemId, stack)) continue;
-
-            ContentObserverRewardBridge.rewardForItems(serverLevel, cfg, stack.getCount());
+            // Nutzer-Vorgabe (mehrere Items pro Block, geteilte Zähler/Abzieher-Liste): siehe
+            // ContentObserverBeltRewardMixin-Kommentar - Regel-Matching läuft zentral in
+            // ContentObserverRewardBridge.
+            ContentObserverRewardBridge.handleDetectedItems(serverLevel, neighborPos, cfg, stack, stack.getCount());
         }
     }
 }

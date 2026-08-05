@@ -32,11 +32,17 @@ import java.util.WeakHashMap;
  * Eintrag automatisch weg, sobald das Item das Segment verlässt und keine andere Referenz mehr
  * existiert - kein manuelles Aufräumen nötig). @At("HEAD") statt TAIL/RETURN: tick() hat mehrere
  * frühe Rückgabepunkte je nach erkanntem Nachbar-Typ, HEAD feuert garantiert bei jedem Tick.
+ *
+ * Bugfix (Nutzer-Fund, 4. Live-Test - derselbe Fund wie ContentObserverChuteRewardMixin, siehe
+ * dessen Kommentar): {@code cobblecompanion$rewarded} war fälschlich STATISCH statt einer Instanz-
+ * Map pro Beobachter-Block - bei mehreren Beobachtern in Reihe (z.B. Zähler + Abzieher am selben
+ * Förderband) hätte das den Abzieher grundsätzlich blockieren können, sobald der Zähler dieselbe
+ * TransportedItemStack-Instanz zuerst markiert. Jetzt Instanz-Map, wie ursprünglich gemeint.
  */
 @Mixin(SmartObserverBlockEntity.class)
 public abstract class ContentObserverBeltRewardMixin {
 
-    private static final Map<TransportedItemStack, Boolean> cobblecompanion$rewarded = new WeakHashMap<>();
+    private final Map<TransportedItemStack, Boolean> cobblecompanion$rewarded = new WeakHashMap<>();
 
     @Inject(method = "tick", at = @At("HEAD"))
     private void cobblecompanion$onTick(CallbackInfo ci) {
@@ -46,7 +52,7 @@ public abstract class ContentObserverBeltRewardMixin {
         if (!(self.getLevel() instanceof ServerLevel serverLevel)) return;
         BlockPos pos = self.getBlockPos();
 
-        ContentObserverConfigManager.Entry cfg = ContentObserverConfigManager.get(serverLevel.dimension(), pos);
+        ContentObserverConfigManager.BlockConfig cfg = ContentObserverConfigManager.get(serverLevel.dimension(), pos);
         if (cfg == null) return;
 
         BlockState state = self.getBlockState();
@@ -55,13 +61,13 @@ public abstract class ContentObserverBeltRewardMixin {
         TransportedItemStackHandlerBehaviour belt = BlockEntityBehaviour.get(serverLevel, neighborPos, TransportedItemStackHandlerBehaviour.TYPE);
         if (belt == null) return; // kein Förderband am Nachbarn - siehe ContentObserverActivateMixin für den generischen Fallback
 
-        // Nutzer-Vorgabe: Wildcard-/Tag-Muster (siehe ContentObserverConfigManager.matches-
-        // Kommentar) - Creates eigene FilteringBehaviour kennt nur konkrete Einzel-Items, deshalb
-        // hier direkt gegen das konfigurierte Muster statt gegen die FilteringBehaviour geprüft.
+        // Nutzer-Vorgabe (mehrere Items pro Block, geteilte Zähler/Abzieher-Liste): welche Regel(n)
+        // passen entscheidet jetzt zentral ContentObserverRewardBridge (prüft Zähler- UND
+        // Abzieher-Liste unabhängig, siehe dessen Klassenkommentar) - hier nur noch der Stückzahl-
+        // genaue Erkennungs-Trigger.
         belt.handleCenteredProcessingOnAllItems(0.45f, transported -> {
-            if (ContentObserverConfigManager.matches(cfg.itemId, transported.stack)
-                    && cobblecompanion$rewarded.putIfAbsent(transported, Boolean.TRUE) == null) {
-                ContentObserverRewardBridge.rewardForItems(serverLevel, cfg, transported.stack.getCount());
+            if (cobblecompanion$rewarded.putIfAbsent(transported, Boolean.TRUE) == null) {
+                ContentObserverRewardBridge.handleDetectedItems(serverLevel, pos, cfg, transported.stack, transported.stack.getCount());
             }
             return TransportedItemStackHandlerBehaviour.TransportedResult.doNothing();
         });

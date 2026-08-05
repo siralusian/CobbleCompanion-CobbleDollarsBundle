@@ -3,9 +3,10 @@ package com.cobblecompanion.cobbledollarscreate.network;
 import com.cobblecompanion.cobbledollarscreate.CobbleCompanionDollarsCreate;
 import com.cobblecompanion.cobbledollarscreate.ContentObserverBridge;
 import com.cobblecompanion.cobbledollarscreate.ContentObserverConfigManager;
+import com.cobblecompanion.cobbledollarscreate.ContentObserverGroupCatalogManager;
+import com.cobblecompanion.cobbledollarscreate.ContentObserverGroupManager;
 import com.cobblecompanion.data.FriendsManager;
 import com.cobblecompanion.integrations.ModAvailability;
-import com.cobblecompanion.integrations.cobbledollars.CobbleDollarsScale;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -19,22 +20,109 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
  * Client -> Server: Schlauer-Beobachter-Editor "Speichern"/"Leeren"-Button (siehe
  * ContentObserverInteractionHandler/ContentObserverConfigScreen). clear=true = Konfiguration
- * entfernen (setzt den echten Filter am Block ebenfalls zurück, itemId/targetPlayerName/
- * amountPerItem werden dabei ignoriert).
+ * komplett entfernen (setzt den echten Filter am Block ebenfalls zurück, alle anderen Felder
+ * werden dabei ignoriert).
  *
- * Nutzer-Vorgabe: itemId akzeptiert beim Speichern (clear=false) neben einer konkreten Item-ID
- * zusätzlich leer oder "*" (JEDES Item), "minecraft:*" (Namespace-Wildcard) und "#minecraft:logs"
- * (Tag) - siehe ContentObserverConfigManager.matches() für die eigentliche Prüf-Logik zur
- * Laufzeit. Ein eigenes clear-Flag statt weiterhin "" als Lösch-Signal zu überladen, weil "" jetzt
- * eine eigene gültige (positive) Bedeutung hat ("beobachte alles").
+ * Nutzer-Vorgabe (3. Live-Test, "geteilte Katalog-Liste ohne Block-Rolle"): {@code rules} kodiert
+ * jeden Katalog-Eintrag als "itemId|targetPlayerName|amountPerItem|inCounterList|inSubtractorList"
+ * (gleiches Format wie ContentObserverConfigSyncPacket#encodeCatalogEntry) - itemId akzeptiert
+ * neben einer konkreten Item-ID zusätzlich leer oder "*" (JEDES Item), "minecraft:*" (Namespace-
+ * Wildcard) und "#minecraft:logs" (Tag), siehe ContentObserverConfigManager.matches(). Bei einem
+ * GRUPPIERTEN Block ist {@code rules} der VOLLSTÄNDIGE gewünschte geteilte Katalog (der Editor
+ * zeigt links bereits den ganzen Katalog, Speichern schreibt ihn deshalb komplett zurück statt
+ * granular zu diffen), bei einem ungruppierten Block seine eigene, unabhängige Liste.
+ *
+ * Ein Eintrag braucht nur dann einen gültigen Empfänger, wenn er zur ZÄHLER-Liste gehört
+ * (inCounterList=true) - reine Abzieher-Einträge (nur inSubtractorList=true) dienen ausschließlich
+ * der Item-Erkennung, siehe ContentObserverPromiseManager.
+ *
+ * {@code groupMeta} kodiert "&lt;groupId&gt;" + Trennzeichen + "&lt;groupName&gt;" + Trennzeichen +
+ * "&lt;enabledCounterItemIdsCsv&gt;" + Trennzeichen + "&lt;enabledSubtractorItemIdsCsv&gt;" (leere
+ * groupId = Gruppe verlassen/keiner zugehörig) - der Gruppenname wird zentral für ALLE Mitglieder
+ * der Gruppe aktualisiert (siehe ContentObserverGroupManager). {@code meta} kodiert
+ * "promiseExpiryStage|bulkActionItemId|bulkAction" (bulkAction ∈ {"", "ON", "OFF"} - Nutzer-Vorgabe:
+ * beim Speichern kann für EIN Item die Aktiv/Inaktiv-Checkbox bei ALLEN Beobachtern der Gruppe
+ * erzwungen werden, siehe {@link #handle}).
  */
-public record ContentObserverConfigUpdatePacket(BlockPos pos, boolean clear, String itemId, String targetPlayerName, long amountPerItem)
+public record ContentObserverConfigUpdatePacket(BlockPos pos, boolean clear, List<String> rules, String groupMeta, String meta)
         implements CustomPacketPayload {
+
+    private static final char GROUP_META_SEPARATOR = (char) 0x1F;
+
+    public static String encodeGroupMeta(String groupId, String groupName, String enabledCounterItemIdsCsv, String enabledSubtractorItemIdsCsv) {
+        return (groupId == null ? "" : groupId) + GROUP_META_SEPARATOR + (groupName == null ? "" : groupName)
+            + GROUP_META_SEPARATOR + (enabledCounterItemIdsCsv == null ? "" : enabledCounterItemIdsCsv)
+            + GROUP_META_SEPARATOR + (enabledSubtractorItemIdsCsv == null ? "" : enabledSubtractorItemIdsCsv);
+    }
+
+    private String groupMetaPart(int index) {
+        String[] parts = groupMeta.split(String.valueOf(GROUP_META_SEPARATOR), -1);
+        return index < parts.length ? parts[index] : "";
+    }
+
+    public String groupId() {
+        return groupMetaPart(0);
+    }
+
+    public String groupName() {
+        return groupMetaPart(1);
+    }
+
+    private static Set<String> csvToSet(String csv) {
+        if (csv.isBlank()) return Set.of();
+        return new HashSet<>(java.util.Arrays.asList(csv.split(",")));
+    }
+
+    public Set<String> enabledCounterItemIds() {
+        return csvToSet(groupMetaPart(2));
+    }
+
+    public Set<String> enabledSubtractorItemIds() {
+        return csvToSet(groupMetaPart(3));
+    }
+
+    public static String encodeMeta(int promiseExpiryStage, boolean subtractorBlock, String bulkActionItemId, String bulkAction) {
+        return promiseExpiryStage + "|" + subtractorBlock + "|" + (bulkActionItemId == null ? "" : bulkActionItemId) + "|" + (bulkAction == null ? "" : bulkAction);
+    }
+
+    public int promiseExpiryStage() {
+        try {
+            return Integer.parseInt(metaPart(0));
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    /** Reine Bulk-Aktion-Klassifizierung dieses Blocks (Zähler-/Abzieher-Block) - siehe ContentObserverConfigManager.BlockConfig#subtractorBlock. */
+    public boolean subtractorBlock() {
+        return Boolean.parseBoolean(metaPart(1));
+    }
+
+    public String bulkActionItemId() {
+        return metaPart(2);
+    }
+
+    /** "" (keine Bulk-Aktion), "ON" oder "OFF" - siehe Klassenkommentar. */
+    public String bulkAction() {
+        return metaPart(3);
+    }
+
+    private String metaPart(int index) {
+        String[] parts = meta.split("\\|", -1);
+        return index < parts.length ? parts[index] : "";
+    }
 
     public static final CustomPacketPayload.Type<ContentObserverConfigUpdatePacket> TYPE =
         new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(
@@ -43,9 +131,9 @@ public record ContentObserverConfigUpdatePacket(BlockPos pos, boolean clear, Str
     public static final StreamCodec<ByteBuf, ContentObserverConfigUpdatePacket> CODEC = StreamCodec.composite(
         BlockPos.STREAM_CODEC, ContentObserverConfigUpdatePacket::pos,
         ByteBufCodecs.BOOL, ContentObserverConfigUpdatePacket::clear,
-        ByteBufCodecs.STRING_UTF8, ContentObserverConfigUpdatePacket::itemId,
-        ByteBufCodecs.STRING_UTF8, ContentObserverConfigUpdatePacket::targetPlayerName,
-        ByteBufCodecs.VAR_LONG, ContentObserverConfigUpdatePacket::amountPerItem,
+        ByteBufCodecs.collection(ArrayList::new, ByteBufCodecs.STRING_UTF8), ContentObserverConfigUpdatePacket::rules,
+        ByteBufCodecs.STRING_UTF8, ContentObserverConfigUpdatePacket::groupMeta,
+        ByteBufCodecs.STRING_UTF8, ContentObserverConfigUpdatePacket::meta,
         ContentObserverConfigUpdatePacket::new);
 
     @Override
@@ -77,55 +165,143 @@ public record ContentObserverConfigUpdatePacket(BlockPos pos, boolean clear, Str
                 return;
             }
 
-            String raw = packet.itemId().trim();
-            String normalizedPattern;
-            // Nur bei einem konkreten Item gesetzt - Create's eigene FilteringBehaviour kennt keine
-            // Wildcards/Tags, siehe ContentObserverConfigManager.matches()-Klassenkommentar.
-            Item concreteItem = null;
+            List<ContentObserverGroupCatalogManager.CatalogEntry> parsedEntries = new ArrayList<>();
+            Map<String, Item> concreteItemByPattern = new HashMap<>();
+            for (String encoded : packet.rules()) {
+                ContentObserverConfigSyncPacket.CatalogEntryView view = ContentObserverConfigSyncPacket.decodeCatalogEntry(encoded);
+                String raw = view.itemId().trim();
+                String targetPlayerRaw = view.targetPlayerName().trim();
 
-            if (raw.isEmpty() || raw.equals("*")) {
-                normalizedPattern = "*";
-            } else if (raw.startsWith("#")) {
-                ResourceLocation tagRl = ResourceLocation.tryParse(raw.substring(1));
-                if (tagRl == null) {
-                    player.sendSystemMessage(Component.translatableWithFallback(
-                        "cobblecompanion.msg.contentobserver_unknown_item", "Unknown item ID: %s", raw));
-                    return;
+                String normalizedPattern;
+                Item concreteItem = null;
+                if (raw.isEmpty() || raw.equals("*")) {
+                    normalizedPattern = "*";
+                } else if (raw.startsWith("#")) {
+                    ResourceLocation tagRl = ResourceLocation.tryParse(raw.substring(1));
+                    if (tagRl == null) {
+                        player.sendSystemMessage(Component.translatableWithFallback(
+                            "cobblecompanion.msg.contentobserver_unknown_item", "Unknown item ID: %s", raw));
+                        continue;
+                    }
+                    normalizedPattern = "#" + TagKey.create(net.minecraft.core.registries.Registries.ITEM, tagRl).location();
+                } else if (raw.endsWith(":*")) {
+                    normalizedPattern = raw;
+                } else {
+                    String itemId = raw.contains(":") ? raw : "minecraft:" + raw;
+                    ResourceLocation itemRl = ResourceLocation.tryParse(itemId);
+                    if (itemRl == null || !BuiltInRegistries.ITEM.containsKey(itemRl)) {
+                        player.sendSystemMessage(Component.translatableWithFallback(
+                            "cobblecompanion.msg.contentobserver_unknown_item", "Unknown item ID: %s", itemId));
+                        continue;
+                    }
+                    concreteItem = BuiltInRegistries.ITEM.get(itemRl);
+                    normalizedPattern = itemRl.toString();
                 }
-                normalizedPattern = "#" + TagKey.create(net.minecraft.core.registries.Registries.ITEM, tagRl).location();
-            } else if (raw.endsWith(":*")) {
-                normalizedPattern = raw;
+
+                // Bugfix (siehe Klassenkommentar): ein reiner Abzieher-Eintrag braucht keinen
+                // Empfänger - leerer Name bleibt dann einfach null, statt den Eintrag komplett zu
+                // verwerfen. Ein Zähler-Eintrag OHNE Empfänger kann dagegen nie auszahlen.
+                UUID targetUuid = null;
+                if (!targetPlayerRaw.isEmpty()) {
+                    targetUuid = FriendsManager.resolvePlayerName(player.getServer(), targetPlayerRaw);
+                    if (targetUuid == null) {
+                        player.sendSystemMessage(Component.translatableWithFallback(
+                            "cobblecompanion.msg.contentobserver_unknown_player", "Unknown player: %s", targetPlayerRaw));
+                        continue;
+                    }
+                } else if (view.inCounterList()) {
+                    continue;
+                }
+
+                ContentObserverGroupCatalogManager.CatalogEntry entry = new ContentObserverGroupCatalogManager.CatalogEntry();
+                entry.itemId = normalizedPattern;
+                entry.targetPlayerUuid = targetUuid != null ? targetUuid.toString() : null;
+                entry.amountPerItem = view.amountPerItem();
+                entry.inCounterList = view.inCounterList();
+                entry.inSubtractorList = view.inSubtractorList();
+                if (concreteItem != null) concreteItemByPattern.put(normalizedPattern, concreteItem);
+                parsedEntries.add(entry);
+            }
+
+            String newGroupId = packet.groupId() == null || packet.groupId().isBlank() ? null : packet.groupId();
+
+            ContentObserverConfigManager.BlockConfig cfg = new ContentObserverConfigManager.BlockConfig();
+            cfg.groupId = newGroupId;
+            cfg.promiseExpiryStage = packet.promiseExpiryStage();
+            cfg.subtractorBlock = packet.subtractorBlock();
+
+            Set<String> effectiveItemIds = new LinkedHashSet<>();
+            if (newGroupId != null) {
+                ContentObserverGroupCatalogManager.replaceCatalog(newGroupId, parsedEntries);
+                cfg.rules = new ArrayList<>();
+                cfg.enabledCounterItemIds = packet.enabledCounterItemIds();
+                cfg.enabledSubtractorItemIds = packet.enabledSubtractorItemIds();
+                for (ContentObserverGroupCatalogManager.CatalogEntry entry : parsedEntries) {
+                    boolean effectiveCounter = entry.inCounterList && cfg.enabledCounterItemIds.contains(entry.itemId);
+                    boolean effectiveSubtractor = entry.inSubtractorList && cfg.enabledSubtractorItemIds.contains(entry.itemId);
+                    if (effectiveCounter || effectiveSubtractor) effectiveItemIds.add(entry.itemId);
+                }
             } else {
-                String itemId = raw.contains(":") ? raw : "minecraft:" + raw;
-                ResourceLocation itemRl = ResourceLocation.tryParse(itemId);
-                if (itemRl == null || !BuiltInRegistries.ITEM.containsKey(itemRl)) {
-                    player.sendSystemMessage(Component.translatableWithFallback(
-                        "cobblecompanion.msg.contentobserver_unknown_item", "Unknown item ID: %s", itemId));
-                    return;
+                for (ContentObserverGroupCatalogManager.CatalogEntry entry : parsedEntries) {
+                    ContentObserverConfigManager.Rule rule = new ContentObserverConfigManager.Rule();
+                    rule.itemId = entry.itemId;
+                    rule.targetPlayerUuid = entry.targetPlayerUuid;
+                    rule.amountPerItem = entry.amountPerItem;
+                    cfg.rules.add(rule);
+                    effectiveItemIds.add(entry.itemId);
                 }
-                concreteItem = BuiltInRegistries.ITEM.get(itemRl);
-                normalizedPattern = itemRl.toString();
+                cfg.enabledCounterItemIds = new HashSet<>();
+                cfg.enabledSubtractorItemIds = new HashSet<>();
             }
 
-            UUID targetUuid = FriendsManager.resolvePlayerName(player.getServer(), packet.targetPlayerName().trim());
-            if (targetUuid == null) {
+            ContentObserverConfigManager.set(player.level().dimension(), packet.pos(), cfg);
+            if (cfg.groupId != null) ContentObserverGroupManager.setName(cfg.groupId, packet.groupName());
+
+            // Nutzer-Vorgabe (3. Live-Test, "Aktiv/Inaktiv bei allen Beobachtern setzen"): beim
+            // Speichern kann für EIN im Formular bearbeitetes Item erzwungen werden, dass ALLE
+            // Beobachter der Gruppe (inkl. dieser) es fortan (nicht) erkennen - überschreibt deren
+            // eigene, bisher individuell gesetzte Checkbox für genau dieses Item.
+            //
+            // Bugfix (Nutzer-Fund, 4. Live-Test): "alle Beobachter" heißt NICHT wirklich jeder
+            // einzelne Block der Gruppe - ein reiner Abzieher-Block soll durch "Aktiv setzen" NICHT
+            // plötzlich auch anfangen, dasselbe Item zu ZÄHLEN (und umgekehrt), nur weil derselbe
+            // Katalog-Eintrag in beiden Listen geführt wird. Die Zähler-Seite der Bulk-Aktion trifft
+            // deshalb nur als Zähler klassifizierte Blöcke, die Abzieher-Seite nur als Abzieher
+            // klassifizierte (siehe BlockConfig#subtractorBlock).
+            String bulkItemId = packet.bulkActionItemId();
+            String bulkAction = packet.bulkAction();
+            if (newGroupId != null && !bulkItemId.isBlank() && !bulkAction.isBlank()) {
+                boolean on = bulkAction.equals("ON");
+                boolean bulkInCounter = false, bulkInSubtractor = false;
+                for (ContentObserverGroupCatalogManager.CatalogEntry entry : parsedEntries) {
+                    if (entry.itemId.equals(bulkItemId)) {
+                        bulkInCounter = entry.inCounterList;
+                        bulkInSubtractor = entry.inSubtractorList;
+                        break;
+                    }
+                }
+                for (ContentObserverConfigManager.BlockConfig other : ContentObserverConfigManager.getGroupConfigs(newGroupId)) {
+                    if (bulkInCounter && !other.subtractorBlock) {
+                        if (on) other.enabledCounterItemIds.add(bulkItemId); else other.enabledCounterItemIds.remove(bulkItemId);
+                    }
+                    if (bulkInSubtractor && other.subtractorBlock) {
+                        if (on) other.enabledSubtractorItemIds.add(bulkItemId); else other.enabledSubtractorItemIds.remove(bulkItemId);
+                    }
+                }
+                ContentObserverConfigManager.saveNow();
                 player.sendSystemMessage(Component.translatableWithFallback(
-                    "cobblecompanion.msg.contentobserver_unknown_player", "Unknown player: %s", packet.targetPlayerName()));
-                return;
+                    "cobblecompanion.msg.contentobserver_bulk_applied", "%s set to %s for all observers in the group.", bulkItemId, on ? "active" : "inactive"));
             }
 
-            ContentObserverConfigManager.Entry entry = new ContentObserverConfigManager.Entry();
-            entry.itemId = normalizedPattern;
-            entry.targetPlayerUuid = targetUuid.toString();
-            // Nutzer-Vorgabe: negativ = Abzug statt Gutschrift pro Item (siehe
-            // ContentObserverRewardManager) - bewusst kein Math.max(0, ...) mehr.
-            entry.amountPerItem = packet.amountPerItem();
-            ContentObserverConfigManager.set(player.level().dimension(), packet.pos(), entry);
-            ContentObserverBridge.setFilter(player.level(), packet.pos(), concreteItem);
+            // Nutzer-Vorgabe (mehrere Items pro Block): bei genau 1 (für DIESEN Block wirksamer)
+            // Item zeigt der Filter-Slot das echte Item, bei mehreren "create:filter" - siehe
+            // ContentObserverBridge-Klassenkommentar.
+            Item filterItem = effectiveItemIds.size() == 1 ? concreteItemByPattern.get(effectiveItemIds.iterator().next()) : null;
+            ContentObserverBridge.setFilterForRuleCount(player.level(), packet.pos(), filterItem, effectiveItemIds.size());
 
             player.sendSystemMessage(Component.translatableWithFallback(
-                "cobblecompanion.msg.contentobserver_saved", "Content Observer configured: %s -> %s Cobbledollars per item for %s.",
-                entry.itemId, CobbleDollarsScale.formatRaw(java.math.BigInteger.valueOf(entry.amountPerItem)), packet.targetPlayerName()));
+                "cobblecompanion.msg.contentobserver_saved", "Content Observer configured (%s rule(s)).",
+                String.valueOf(effectiveItemIds.size())));
         });
     }
 }

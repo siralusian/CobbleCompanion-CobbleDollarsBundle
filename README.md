@@ -93,8 +93,12 @@ real OP for the block-editor shortcuts) — it's built for whoever runs the serv
 
 - **Stock ticker prices**: live price display synced to your balance. **Ctrl+right-click a stock
   ticker** (real OP) opens the price editor instead of Create's normal order menu.
-- **Content Observer ("Schlauer Beobachter")**: automatic sale counting for items funneled past it.
-  **Ctrl+right-click the block** (real OP) opens its settings.
+- **Content Observer ("Schlauer Beobachter")**: tracks multiple items per block, can pull prices
+  directly from a linked stock network, and several observers can be linked into a group where a
+  "subtractor" reduces or cancels a "counter"'s payout. **Ctrl+right-click the block** (real OP,
+  not holding a Content Observer item) opens its settings. To link observers into a group, hold a
+  Content Observer item and Ctrl+right-click an already-placed one. Full walkthrough in the
+  [CobbleDollars/Create wiki](https://github.com/siralusian/CobbleCompanion-CobbleDollars-Create/wiki/English#configuring-the-content-observer).
 - **Linking a CobbleMerchant to a stock ticker or payout chest** (AdminOp): Ctrl+right-click the
   merchant to start link mode, then Ctrl+right-click a stock ticker or a chest. Ctrl+right-click
   the same merchant again to cancel.
@@ -265,8 +269,13 @@ OP für die Block-Editor-Abkürzungen) – gebaut für die Person, die das Serve
 
 - **Lagerticker-Preise**: **Strg+Rechtsklick auf den Lagerticker** (echter OP) öffnet den
   Preis-Editor.
-- **Schlauer Beobachter**: **Strg+Rechtsklick auf den Block** (echter OP) öffnet die
-  Einstellungen.
+- **Schlauer Beobachter**: verfolgt mehrere Items pro Block, kann Preise direkt aus einem
+  verlinkten Lagernetzwerk übernehmen, und mehrere Beobachter lassen sich zu einer Gruppe
+  verknüpfen, in der ein "Abzieher" die Auszahlung eines "Zählers" verringert oder storniert.
+  **Strg+Rechtsklick auf den Block** (echter OP, kein Schlauer-Beobachter-Item in der Hand) öffnet
+  die Einstellungen. Zum Verknüpfen: Beobachter-Item in der Hand halten und Strg+Rechtsklick auf
+  einen bereits platzierten Beobachter. Vollständige Anleitung im
+  [CobbleDollars/Create-Wiki](https://github.com/siralusian/CobbleCompanion-CobbleDollars-Create/wiki/Deutsch#schlauer-beobachter-konfigurieren).
 - **CobbleMerchant verknüpfen** (AdminOp): Strg+Rechtsklick auf den Merchant startet den Modus,
   dann Strg+Rechtsklick auf Ticker oder Kiste. Erneutes Strg+Rechtsklick auf denselben Merchant
   bricht ab.

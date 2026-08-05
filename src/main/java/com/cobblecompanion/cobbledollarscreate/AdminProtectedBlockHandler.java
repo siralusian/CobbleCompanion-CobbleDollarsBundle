@@ -22,11 +22,29 @@ public class AdminProtectedBlockHandler {
     @SubscribeEvent
     public void onBlockBreak(BlockEvent.BreakEvent event) {
         if (!(event.getPlayer() instanceof ServerPlayer player)) return;
-        if (player.hasPermissions(2)) return; // echte OPs dürfen immer abbauen
 
         var level = event.getLevel();
         if (!(level instanceof net.minecraft.server.level.ServerLevel serverLevel)) return;
         var pos = event.getPos();
+
+        if (player.hasPermissions(2)) {
+            // Bugfix (Live-Fund, 2. Live-Test): bei >1 Regel steht im Filter-Slot Creates eigenes
+            // "create:filter"-Item (siehe ContentObserverBridge#setFilterForRuleCount) - beim Abbau
+            // droppte dieses Platzhalter-Item bisher mit, weil Creates eigene Block-Drop-Logik den
+            // Inhalt der FilteringBehaviour einbezieht. Filter VOR dem eigentlichen Abbau leeren,
+            // damit nichts Zusätzliches droppt.
+            if (ContentObserverConfigManager.isConfigured(serverLevel.dimension(), pos)) {
+                ContentObserverBridge.setFilter(serverLevel, pos, null);
+            }
+            // Bugfix (Live-Fund): ein OP darf einen konfigurierten Schlauen Beobachter zwar immer
+            // abbauen, aber seine Konfiguration blieb bisher als "Geisterblock" in
+            // ContentObserverConfigManager stehen - zählte weiter zu den Gruppen-Mitgliederzahlen
+            // (falsche "2 Zähler" trotz nur 1 platziertem Block) und blieb dauerhaft grün
+            // hervorgehoben (siehe ContentObserverGroupHighlightRenderer), obwohl der Block längst
+            // weg war. Konfiguration jetzt IMMER mit entfernen, wenn der Abbau tatsächlich passiert.
+            ContentObserverConfigManager.remove(serverLevel.dimension(), pos);
+            return; // echte OPs dürfen immer abbauen
+        }
 
         // Bugfix (Live-Fund): CreateStockTickerPriceManager.isEnabled() beantwortet nur "verlangt
         // DIESES (bereits als Ticker bekannte) Netzwerk Bezahlung" - OHNE eigene Prüfung, ob an

@@ -31,11 +31,20 @@ import java.util.WeakHashMap;
  * beobachteten Schacht liegt. Deshalb hier: direkter Zugriff auf ChuteBlockEntity#getItem() des
  * Nachbar-Schachts, WeakHashMap-Merker pro ItemStack-Objekt (wie ContentObserverBeltRewardMixin),
  * Belohnung mit echter Stueckzahl genau einmal pro Stack-Objekt.
+ *
+ * Bugfix (Nutzer-Fund, 4. Live-Test - der eigentliche Grund, warum Abziehen NIE funktionierte):
+ * {@code cobblecompanion$rewarded} war fälschlich STATISCH - eine einzige, über ALLE Schlauen
+ * Beobachter im ganzen Spiel GETEILTE Map. Da dasselbe ItemStack-OBJEKT (siehe oben, per Referenz
+ * durchgereicht) beim Herabfallen durch mehrere Schächte MEHRERE Beobachter passiert (z.B. Zähler
+ * an Schacht 2, Abzieher an Schacht 4), markierte der ZÄHLER das Objekt bereits als "belohnt" -
+ * der Abzieher weiter unten sah dasselbe Objekt, fand es schon in der (geteilten!) Map und rief
+ * ContentObserverRewardBridge.handleDetectedItems NIE auf. Jetzt eine Instanz-Map PRO Beobachter-
+ * Block (kein "static" mehr) - jeder Block führt seine eigene, unabhängige Buchführung.
  */
 @Mixin(SmartObserverBlockEntity.class)
 public abstract class ContentObserverChuteRewardMixin {
 
-    private static final Map<ItemStack, Boolean> cobblecompanion$rewarded = new WeakHashMap<>();
+    private final Map<ItemStack, Boolean> cobblecompanion$rewarded = new WeakHashMap<>();
 
     @Inject(method = "tick", at = @At("HEAD"))
     private void cobblecompanion$onTick(CallbackInfo ci) {
@@ -45,7 +54,7 @@ public abstract class ContentObserverChuteRewardMixin {
         if (!(self.getLevel() instanceof ServerLevel serverLevel)) return;
         BlockPos pos = self.getBlockPos();
 
-        ContentObserverConfigManager.Entry cfg = ContentObserverConfigManager.get(serverLevel.dimension(), pos);
+        ContentObserverConfigManager.BlockConfig cfg = ContentObserverConfigManager.get(serverLevel.dimension(), pos);
         if (cfg == null) return;
 
         BlockState state = self.getBlockState();
@@ -56,11 +65,11 @@ public abstract class ContentObserverChuteRewardMixin {
         ItemStack current = chute.getItem();
         if (current.isEmpty()) return;
 
-        // Nutzer-Vorgabe: Wildcard-/Tag-Muster - siehe ContentObserverBeltRewardMixin-Kommentar.
-        if (!ContentObserverConfigManager.matches(cfg.itemId, current)) return;
-
+        // Nutzer-Vorgabe (mehrere Items pro Block, geteilte Zähler/Abzieher-Liste): siehe
+        // ContentObserverBeltRewardMixin-Kommentar - Regel-Matching läuft zentral in
+        // ContentObserverRewardBridge.
         if (cobblecompanion$rewarded.putIfAbsent(current, Boolean.TRUE) == null) {
-            ContentObserverRewardBridge.rewardForItems(serverLevel, cfg, current.getCount());
+            ContentObserverRewardBridge.handleDetectedItems(serverLevel, pos, cfg, current, current.getCount());
         }
     }
 }
