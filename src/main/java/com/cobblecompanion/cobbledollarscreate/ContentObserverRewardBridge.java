@@ -63,12 +63,6 @@ public final class ContentObserverRewardBridge {
             // die sofort verrechnete Differenz zum Zähler-Preis - siehe ContentObserverPromiseManager-Klassenkommentar.
             ContentObserverPromiseManager.subtract(level.getServer(), cfg.groupId, itemKey, itemCount, subtractorRule.amountPerItem);
         }
-
-        if (counterRule == null && subtractorRule == null) {
-            CobbleCompanionDollarsCreate.LOGGER.info(
-                "[CC] Beobachter {} sieht {}x {}, aber keine aktivierte Katalog-Regel (Zähler oder Abzieher) passt (Gruppe {}).",
-                pos, itemCount, itemKey, cfg.groupId);
-        }
     }
 
     /** Ungruppierter Block: sofortige Auszahlung, kein Zähler/Abzieher-Konzept. */

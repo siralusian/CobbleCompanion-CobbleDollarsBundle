@@ -70,9 +70,6 @@ public final class ContentObserverPromiseManager {
         groups.computeIfAbsent(groupId, g -> new HashMap<>())
             .computeIfAbsent(itemId, i -> new ArrayDeque<>())
             .addLast(promise);
-        CobbleCompanionDollarsCreate.LOGGER.info(
-            "[CC] Beobachter-Gruppe {}: {}x {} gezählt, Versprechen über {} Stück a {} angelegt (Empfänger {})",
-            groupId, itemCount, itemId, itemCount, amountPerItem, targetPlayerUuid);
     }
 
     /**
@@ -84,17 +81,9 @@ public final class ContentObserverPromiseManager {
     public static void subtract(MinecraftServer server, String groupId, String itemId, int itemCount, long subtractorAmountPerItem) {
         if (groupId == null || itemId == null || itemCount <= 0) return;
         Map<String, Deque<Promise>> byItem = groups.get(groupId);
-        if (byItem == null) {
-            CobbleCompanionDollarsCreate.LOGGER.info(
-                "[CC] Beobachter-Gruppe {}: Abzug für {} ignoriert - keine offenen Versprechen in dieser Gruppe.", groupId, itemId);
-            return;
-        }
+        if (byItem == null) return;
         Deque<Promise> queue = byItem.get(itemId);
-        if (queue == null || queue.isEmpty()) {
-            CobbleCompanionDollarsCreate.LOGGER.info(
-                "[CC] Beobachter-Gruppe {}: Abzug für {} ignoriert - keine offenen Versprechen für dieses Item.", groupId, itemId);
-            return;
-        }
+        if (queue == null || queue.isEmpty()) return;
 
         long remaining = itemCount;
         long totalNet = 0;
@@ -112,9 +101,6 @@ public final class ContentObserverPromiseManager {
             remaining -= take;
             if (promise.itemsRemaining <= 0) it.remove();
         }
-        CobbleCompanionDollarsCreate.LOGGER.info(
-            "[CC] Beobachter-Gruppe {}: {}x {} abgezogen (eigener Preis {}), {} Stück storniert, Nettobetrag {} sofort verrechnet.",
-            groupId, itemCount, itemId, subtractorAmountPerItem, itemCount - remaining, totalNet);
     }
 
     private static long expiryTicksFromStage(int stage) {
@@ -137,9 +123,6 @@ public final class ContentObserverPromiseManager {
 
                     if (promise.itemsRemaining > 0) {
                         long amount = promise.itemsRemaining * promise.amountPerItem;
-                        CobbleCompanionDollarsCreate.LOGGER.info(
-                            "[CC] Beobachter-Versprechen verfallen: {}x a {} = {} an {} ausgezahlt.",
-                            promise.itemsRemaining, promise.amountPerItem, amount, promise.targetPlayerUuid);
                         ContentObserverRewardBridge.payout(server, promise.targetPlayerUuid, amount);
                     }
                     it.remove();
